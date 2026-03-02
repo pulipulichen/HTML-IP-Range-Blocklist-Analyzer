@@ -2,12 +2,12 @@ const CACHE_NAME = 'ip-analyzer-v1';
 const ASSETS = [
   './',
   './index.html',
-  './style.css',
-  './config.js',
-  './utils.js',
-  './ui.js',
-  './api.js',
-  './main.js',
+  './styles/style.css',
+  './scripts/config.js',
+  './scripts/utils.js',
+  './scripts/ui.js',
+  './scripts/api.js',
+  './scripts/main.js',
   './assets/favicon/favicon.png',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/lucide@latest'
