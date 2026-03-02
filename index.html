@@ -72,7 +72,7 @@
             <div id="unknownSection" class="hidden space-y-2 p-4 bg-orange-50 border border-orange-200 rounded-xl">
                 <h3 class="text-sm font-bold text-orange-800 flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    待處理 Unknown 手動查詢 (點擊開啟 BrowserLeaks)
+                    待處理 Unknown 手動查詢 (點擊後會變色)
                 </h3>
                 <div id="unknownIpButtons" class="flex flex-wrap gap-2">
                     <!-- 動態插入 Unknown IP 按鈕 -->
@@ -94,6 +94,12 @@
             }
             updateManualLinks();
         };
+
+        // 點擊按鈕後標記為已存取
+        function markAsVisited(el) {
+            el.classList.remove('bg-orange-600', 'hover:bg-orange-700', 'bg-white', 'text-blue-600');
+            el.classList.add('bg-slate-400', 'hover:bg-slate-500', 'text-white', 'border-slate-500');
+        }
 
         // 監聽輸入框變化以更新手動連結
         document.getElementById('suspectInput').addEventListener('input', updateManualLinks);
@@ -122,7 +128,7 @@
             const uniqueIps = [...new Set(matches)].sort((a, b) => ipToLong(a) - ipToLong(b));
             
             container.innerHTML = uniqueIps.map(ip => `
-                <a href="https://browserleaks.com/ip/${ip}" target="_blank" 
+                <a href="https://browserleaks.com/ip/${ip}" target="_blank" onclick="markAsVisited(this)"
                    class="inline-flex items-center px-2 py-1 bg-white border border-gray-300 rounded text-[11px] text-blue-600 hover:bg-blue-50 hover:border-blue-400 transition-colors shadow-sm">
                     <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                     ${ip}
@@ -313,7 +319,7 @@
                 unknownSection.classList.remove('hidden');
                 unknownIps.sort((a, b) => ipToLong(a.ip) - ipToLong(b.ip));
                 unknownIpButtons.innerHTML = unknownIps.map(item => `
-                    <a href="https://browserleaks.com/ip/${item.ip}" target="_blank" 
+                    <a href="https://browserleaks.com/ip/${item.ip}" target="_blank" onclick="markAsVisited(this)"
                        class="inline-flex items-center px-3 py-1.5 bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-700 transition-colors shadow-sm">
                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                         ${item.ip}
