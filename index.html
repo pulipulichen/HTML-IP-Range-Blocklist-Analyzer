@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP 清單分析工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #f3f4f6; }
+        textarea { font-family: 'Courier New', Courier, monospace; white-space: pre; overflow-wrap: normal; overflow-x: auto; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-6xl mx-auto space-y-6">
+        <header class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+            <h1 class="text-2xl font-bold text-gray-800">IP 清單分析與自動分組工具</h1>
+            <p class="text-gray-500 text-sm mt-1">分析可疑 IP，自動補全國家資訊，並根據 /16 網段進行群組命名。</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- 輸入區：可疑清單 -->
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700">1. 輸入可疑清單 (New Suspects)</label>
+                <textarea id="suspectInput" class="w-full h-48 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="183.131.117.0/24  'group_183_131_117';  # Freq: 53 ..."></textarea>
+            </div>
+
+            <!-- 輸入區：已設定清單 -->
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700">2. 已設定的清單 (Configured List)</label>
+                <textarea id="configInput" class="w-full h-48 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="原本的設定會自動記錄於此..."></textarea>
+            </div>
+        </div>
+
+        <div class="flex flex-col items-center space-y-4">
+            <button id="runAnalysis" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-full shadow-lg transition duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50">
+                執行分析與合併
+            </button>
+            <div id="progressBarContainer" class="hidden w-full max-w-md bg-gray-200 rounded-full h-2.5">
+                <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- 狀態顯示 -->
+        <div id="statusBox" class="hidden p-4 rounded-lg text-sm font-medium"></div>
+
+        <!-- 結果區 -->
+        <div class="space-y-2">
+            <div class="flex justify-between items-center">
+                <label class="text-sm font-medium text-gray-700">分析結果 (更新後的已設定清單)</label>
+                <button onclick="copyResult()" class="text-blue-600 hover:underline text-sm font-bold">複製結果</button>
+            </div>
+            <textarea id="outputResult" readonly class="w-full h-64 p-3 border rounded-lg bg-gray-50 focus:outline-none" placeholder="結果將顯示於此..."></textarea>
+        </div>
+    </div>
+
+    <script>
+        // 初始化數據
+        const CONFIG_KEY = 'ip_analyzer_config_list';
+        const CACHE_KEY = 'ip_country_cache_v2'; // 更新快取版本
+        
+        // 從 LocalStorage 載入原本的設定
+        window.onload = () => {
+            const savedConfig = localStorage.getItem(CONFIG_KEY);
+            if (savedConfig) {
+                document.getElementById('configInput').value = savedConfig;
+            }
+        };
+
+        // 顯示狀態訊息
+        function showStatus(msg, type = 'info') {
+            const box = document.getElementById('statusBox');
+            box.innerText = msg;
+            box.classList.remove('hidden', 'bg-blue-100', 'text-blue-700', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
+            
+            if (type === 'error') box.classList.add('bg-red-100', 'text-red-700');
+            else if (type === 'success') box.classList.add('bg-green-100', 'text-green-700');
+            else box.classList.add('bg-blue-100', 'text-blue-700');
+        }
+
+        // 解析單行資料
+        function parseLine(line) {
+            if (!line.trim()) return null;
+            // 正則表達式：考慮到開頭縮排、IP/CIDR、群組名稱、以及註解部分
+            const regex = /^\s*([\d\.\/]+)\s+"([^"]+)"\s*;?\s*#\s*Freq:\s*(\d+)\s*\/\s*Diff IPs:\s*(\d+)(?:\s*\/\s*Country:\s*([^#\n]+))?/;
+            const match = line.match(regex);
+            if (match) {
+                const cidr = match[1];
+                const ip = cidr.split('/')[0];
+                const parts = ip.split('.');
+                return {
+                    fullLine: line,
+                    cidr: cidr,
+                    ip: ip,
+                    prefix16: parts.slice(0, 2).join('.'), // 例如 182.247
+                    prefix24: parts.slice(0, 3).join('.'), // 例如 182.247.252
+                    groupName: match[2],
+                    freq: match[3],
+                    diffIps: match[4],
+                    country: match[5] ? match[5].trim() : null
+                };
+            }
+            return null;
+        }
+
+        // 查詢國家 (帶快取，使用支援 HTTPS 的 API)
+        async function fetchCountry(ip) {
+            const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+            if (cache[ip]) return cache[ip];
+
+            // 為了避免觸發免費 API 的 Rate Limit，在請求前增加微小延遲
+            await new Promise(resolve => setTimeout(resolve, 600));
+
+            try {
+                // 使用 freeipapi.com (支援 HTTPS)
+                const response = await fetch(`https://freeipapi.com/api/json/${ip}`);
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                if (data.countryName) {
+                    cache[ip] = data.countryName;
+                    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+                    return data.countryName;
+                }
+            } catch (e) {
+                console.error('API Error for IP ' + ip + ':', e);
+            }
+            return 'Unknown';
+        }
+
+        // IP 排序邏輯
+        function ipToLong(ip) {
+            const parts = ip.split('.');
+            if (parts.length !== 4) return 0;
+            return parts.reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
+        }
+
+        // 執行主程式
+        document.getElementById('runAnalysis').addEventListener('click', async () => {
+            const suspectRaw = document.getElementById('suspectInput').value;
+            const configRaw = document.getElementById('configInput').value;
+            const btn = document.getElementById('runAnalysis');
+            const progressBarContainer = document.getElementById('progressBarContainer');
+            const progressBar = document.getElementById('progressBar');
+
+            if (!suspectRaw.trim()) {
+                showStatus('請先輸入可疑清單', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            showStatus('準備分析中...');
+
+            const configItems = configRaw.split('\n').map(parseLine).filter(x => x !== null);
+            const suspectLines = suspectRaw.split('\n').filter(l => l.trim() !== '');
+            
+            const existingCidrs = new Set(configItems.map(item => item.cidr));
+            let newItems = [];
+
+            // 過濾掉重複的，只處理真正需要查詢的
+            const pendingSuspects = suspectLines
+                .map(parseLine)
+                .filter(parsed => parsed && !existingCidrs.has(parsed.cidr));
+
+            if (pendingSuspects.length > 0) {
+                progressBarContainer.classList.remove('hidden');
+                for (let i = 0; i < pendingSuspects.length; i++) {
+                    const parsed = pendingSuspects[i];
+                    const progress = Math.round(((i + 1) / pendingSuspects.length) * 100);
+                    progressBar.style.width = progress + '%';
+                    
+                    showStatus(`正在查詢 (${i+1}/${pendingSuspects.length}): ${parsed.cidr} ...`);
+                    parsed.country = await fetchCountry(parsed.ip);
+                    newItems.push(parsed);
+                }
+            }
+
+            // 合併清單
+            let allItems = [...configItems, ...newItems];
+
+            // 計算 16 網段出現次數，決定群組名稱
+            const prefix16Count = {};
+            allItems.forEach(item => {
+                prefix16Count[item.prefix16] = (prefix16Count[item.prefix16] || 0) + 1;
+            });
+
+            // 更新群組名稱邏輯
+            allItems = allItems.map(item => {
+                let updatedGroup = item.groupName;
+                if (prefix16Count[item.prefix16] >= 2) {
+                    // 如果同 16 網段出現 2 次以上，改用 16 網段命名
+                    updatedGroup = `group_${item.prefix16.replace(/\./g, '_')}`;
+                } else {
+                    // 否則保持 24 網段命名
+                    updatedGroup = `group_${item.prefix24.replace(/\./g, '_')}`;
+                }
+                return { ...item, groupName: updatedGroup };
+            });
+
+            // 排序 (按 IP 數值)
+            allItems.sort((a, b) => ipToLong(a.ip) - ipToLong(b.ip));
+
+            // 格式化輸出
+            const outputLines = allItems.map(item => {
+                const ipField = item.cidr.padEnd(18, ' ');
+                const groupField = `"${item.groupName}"`.padEnd(20, ' ');
+                return `    ${ipField} ${groupField} ;   # Freq: ${item.freq} / Diff IPs: ${item.diffIps} / Country: ${item.country || 'Unknown'}`;
+            });
+
+            const finalResult = outputLines.join('\n');
+            document.getElementById('outputResult').value = finalResult;
+            
+            // 自動記錄到已設定清單中
+            document.getElementById('configInput').value = finalResult;
+            localStorage.setItem(CONFIG_KEY, finalResult);
+
+            showStatus(`完成！合併後總計 ${allItems.length} 筆資料 (本次新增 ${newItems.length} 筆)。`, 'success');
+            btn.disabled = false;
+            progressBarContainer.classList.add('hidden');
+            progressBar.style.width = '0%';
+        });
+
+        // 複製功能
+        function copyResult() {
+            const text = document.getElementById('outputResult').value;
+            if (!text) return;
+            
+            // 使用較可靠的複製方法
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showStatus('已複製到剪貼簿！', 'success');
+            } catch (err) {
+                showStatus('複製失敗，請手動全選複製。', 'error');
+            }
+            document.body.removeChild(textArea);
+        }
+    </script>
+</body>
+</html>
