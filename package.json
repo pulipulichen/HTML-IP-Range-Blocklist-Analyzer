@@ -1,0 +1,24 @@
+{
+  "name": "html-ip-range-blocklist-analyzer",
+  "version": "1.0.0",
+  "description": "A pure frontend web tool for analyzing and merging IP range blocklists.",
+  "main": "main.js",
+  "scripts": {
+    "start": "sudo docker compose up --build --exit-code-from test-runner"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pulipulichen/HTML-IP-Range-Blocklist-Analyzer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/pulipulichen/HTML-IP-Range-Blocklist-Analyzer/issues"
+  },
+  "homepage": "https://github.com/pulipulichen/HTML-IP-Range-Blocklist-Analyzer#readme",
+  "devDependencies": {
+    "jest": "^30.2.0",
+    "jest-environment-jsdom": "^30.2.0"
+  }
+}

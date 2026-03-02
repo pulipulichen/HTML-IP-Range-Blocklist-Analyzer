@@ -23,7 +23,7 @@ function incrementIP(ip) {
 // 解析單行資料
 function parseLine(line) {
   if (!line.trim()) return null;
-  const regex = /^\s*([\d\.\/]+)\s+"([^"]+)"\s*;?\s*#\s*Freq:\s*(\d+)\s*\/\s*Diff IPs:\s*(\d+)(?:\s*\/\s*Country:\s*([^#\n\s]+))?/;
+  const regex = /^\s*([\d\.\/]+)\s+"([^"]+)"\s*;?\s*#\s*Freq:\s*(\d+)\s*\/\s*Diff IPs:\s*(\d+)(?:\s*\/\s*Country:\s*([^#\n\r]+))?/;
   const match = line.match(regex);
   if (match) {
     const cidr = match[1];
