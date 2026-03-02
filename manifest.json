@@ -1,0 +1,16 @@
+{
+  "name": "IP 清單分析工具",
+  "short_name": "IP 分析工具",
+  "description": "A pure frontend web tool for analyzing and merging IP range blocklists.",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "assets/favicon/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
