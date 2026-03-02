@@ -38,9 +38,15 @@ document.getElementById('runAnalysis').addEventListener('click', async () => {
   let newItems = [];
   let excludedTaiwanCount = 0;
 
-  const pendingSuspects = suspectLines
-    .map(parseLine)
-    .filter(parsed => parsed && !existingCidrs.has(parsed.cidr));
+  const pendingSuspectsMap = new Map();
+  suspectLines.forEach(line => {
+    const parsed = parseLine(line);
+    if (parsed && !existingCidrs.has(parsed.cidr)) {
+      // 避免重複查詢相同的網段
+      pendingSuspectsMap.set(parsed.cidr, parsed);
+    }
+  });
+  const pendingSuspects = Array.from(pendingSuspectsMap.values());
 
   if (pendingSuspects.length > 0) {
     progressBarContainer.classList.remove('hidden');
@@ -78,7 +84,14 @@ document.getElementById('runAnalysis').addEventListener('click', async () => {
     }
   }
 
-  let allItems = [...configItems, ...newItems];
+  // 移除重複的網段 (CIDR)
+  const uniqueItemsMap = new Map();
+  [...configItems, ...newItems].forEach(item => {
+    // 如果已經有相同的 CIDR，則保留較新的資訊 (或可根據需求合併數據)
+    uniqueItemsMap.set(item.cidr, item);
+  });
+  let allItems = Array.from(uniqueItemsMap.values());
+
   const prefix16Count = {};
   const countryStats = {};
   let unknownIps = [];
