@@ -98,9 +98,12 @@ document.getElementById('runAnalysis').addEventListener('click', async () => {
 
   allItems.forEach(item => {
     prefix16Count[item.prefix16] = (prefix16Count[item.prefix16] || 0) + 1;
-    const c = item.country || 'Unknown';
+    let c = item.country || 'Unknown';
+    if (c === 'Unknown') {
+      unknownIps.push(item);
+      c = `Unknown (https://browserleaks.com/ip/${item.ip})`;
+    }
     countryStats[c] = (countryStats[c] || 0) + 1;
-    if (c === 'Unknown') unknownIps.push(item);
   });
 
   allItems = allItems.map(item => {
@@ -153,6 +156,10 @@ document.getElementById('runAnalysis').addEventListener('click', async () => {
   let statusMsg = `完成！合併後總計 ${allItems.length} 筆資料 (本次新增 ${newItems.length} 筆)。`;
   if (excludedTaiwanCount > 0) statusMsg += ` 已自動排除 ${excludedTaiwanCount} 筆台灣 IP。`;
   statusMsg += `<br><div class="mt-2 pt-2 border-t border-blue-200"><strong>國家分佈統計：</strong><span class="text-xs text-blue-600 font-normal">${statsStr}</span></div>`;
+
+  if (unknownIps.length > 0) {
+    statusMsg += `<div class="mt-1 text-orange-600 font-bold">待處理 Unknown 手動查詢</div>`;
+  }
 
   showStatus(statusMsg, 'success');
   btn.disabled = false;
