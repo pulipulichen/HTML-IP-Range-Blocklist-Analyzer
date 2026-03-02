@@ -8,10 +8,11 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         body { background-color: #f3f4f6; }
-        textarea { font-family: 'Courier New', Courier, monospace; white-space: pre; overflow-wrap: normal; overflow-x: auto; }
+        textarea, .code-output { font-family: 'Courier New', Courier, monospace; white-space: pre; overflow-wrap: normal; overflow-x: auto; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .code-output { line-height: 1.6; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -64,7 +65,10 @@
                     <button onclick="copyResult()" class="text-blue-600 hover:underline text-sm font-bold">複製結果</button>
                 </div>
             </div>
-            <textarea id="outputResult" readonly class="w-full h-64 p-3 border rounded-lg bg-gray-50 focus:outline-none" placeholder="結果將顯示於此..."></textarea>
+            <!-- 改為 Div 以渲染按鈕 -->
+            <div id="outputResult" class="code-output w-full h-64 p-3 border rounded-lg bg-gray-50 focus:outline-none overflow-auto custom-scrollbar text-xs" style="min-height: 250px;">
+                <span class="text-gray-400 italic">結果將顯示於此...</span>
+            </div>
         </div>
     </div>
 
@@ -72,6 +76,7 @@
         // 初始化數據
         const CONFIG_KEY = 'ip_analyzer_config_list';
         const CACHE_KEY = 'ip_country_cache_v3'; 
+        let rawTextResult = ""; // 用於複製的純文字
         
         // 從 LocalStorage 載入原本的設定
         window.onload = () => {
@@ -286,24 +291,32 @@
             // 嚴格排序
             allItems.sort((a, b) => ipToLong(a.ip) - ipToLong(b.ip));
 
-            const outputLines = allItems.map(item => {
+            // 生成視覺化內容 (帶按鈕)
+            const htmlOutput = allItems.map(item => {
                 const ipField = item.cidr.padEnd(18, ' ');
                 const groupField = `"${item.groupName}"`.padEnd(20, ' ');
                 let displayCountry = item.country || 'Unknown';
                 
-                // 如果是 Unknown，在輸出中加上 BrowserLeaks 連結
                 if (displayCountry === 'Unknown') {
-                    displayCountry = `Unknown (https://browserleaks.com/ip/${item.ip})`;
+                    displayCountry = `<a href="https://browserleaks.com/ip/${item.ip}" target="_blank" class="inline-flex items-center px-2 py-0.5 bg-orange-100 text-orange-700 rounded border border-orange-300 hover:bg-orange-200 transition-colors font-bold text-[10px] no-underline select-none">Unknown (點擊查詢)</a>`;
                 }
 
                 return `    ${ipField} ${groupField} ;   # Freq: ${item.freq} / Diff IPs: ${item.diffIps} / Country: ${displayCountry}`;
-            });
+            }).join('\n');
 
-            const finalResult = outputLines.join('\n');
-            document.getElementById('outputResult').value = finalResult;
-            document.getElementById('configInput').value = finalResult;
+            // 生成純文字內容 (用於複製)
+            rawTextResult = allItems.map(item => {
+                const ipField = item.cidr.padEnd(18, ' ');
+                const groupField = `"${item.groupName}"`.padEnd(20, ' ');
+                let textCountry = item.country || 'Unknown';
+                if (textCountry === 'Unknown') textCountry = `Unknown (https://browserleaks.com/ip/${item.ip})`;
+                return `    ${ipField} ${groupField} ;   # Freq: ${item.freq} / Diff IPs: ${item.diffIps} / Country: ${textCountry}`;
+            }).join('\n');
+
+            document.getElementById('outputResult').innerHTML = htmlOutput;
+            document.getElementById('configInput').value = rawTextResult; // 文字框同步純文字
             document.getElementById('unknownCounter').innerText = unknownFoundCount > 0 ? `待處理 Unknown: ${unknownFoundCount}` : '';
-            localStorage.setItem(CONFIG_KEY, finalResult);
+            localStorage.setItem(CONFIG_KEY, rawTextResult);
 
             const statsStr = Object.entries(countryStats)
                 .sort((a, b) => b[1] - a[1])
@@ -320,17 +333,16 @@
             progressBar.style.width = '0%';
         });
 
-        // 複製功能
+        // 複製功能 (複製純文字)
         function copyResult() {
-            const text = document.getElementById('outputResult').value;
-            if (!text) return;
+            if (!rawTextResult) return;
             const textArea = document.createElement("textarea");
-            textArea.value = text;
+            textArea.value = rawTextResult;
             document.body.appendChild(textArea);
             textArea.select();
             try {
                 document.execCommand('copy');
-                showStatus('已複製到剪貼簿！', 'success');
+                showStatus('已複製到剪貼簿 (純文字格式)！', 'success');
             } catch (err) {
                 showStatus('複製失敗，請手動全選複製。', 'error');
             }
