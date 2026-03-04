@@ -10,7 +10,8 @@ async function fetchCountryWithRetry(ip) {
   while (attempts <= maxAttempts) {
     try {
       await new Promise(resolve => setTimeout(resolve, 600));
-      const response = await fetch(`https://freeipapi.com/api/json/${currentIp}`);
+      // const response = await fetch(`https://freeipapi.com/api/json/${currentIp}`);
+      const response = await fetch(`https://script.google.com/macros/s/AKfycbxn-NPm_mB6YYpZT2zex6LRSoc6iTvXu-VLslhIQjdY1xp4iRJ5KloLyWIDRzmfPX-CGg/exec?ip=${currentIp}`);
       if (!response.ok) throw new Error('API Error');
       const data = await response.json();
       if (data.countryName && data.countryName !== 'Unknown') {
