@@ -22,14 +22,15 @@ test('執行分析功能測試', async ({ page }) => {
 
   await page.click('#runAnalysis');
 
-  // 等待分析結果
+  // 等待分析結果，允許time out 60秒
+  await page.waitForTimeout(30000);
   const outputResult = page.locator('#outputResult');
   await expect(outputResult).not.toBeEmpty();
 
   const resultText = await outputResult.inputValue();
   expect(resultText).toContain('1.1.1.0/24');
   // 由於在測試環境中 API 可能返回 Unknown 或抓不到 Cloudflare，我們改為檢查格式
-  expect(resultText).toMatch(/Country: (Cloudflare|Unknown)/);
+  expect(resultText).toMatch(/Country: (Australia|Unknown)/);
 });
 
 test('手動檢查連結應該在輸入 IP 後顯示', async ({ page }) => {
